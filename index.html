@@ -302,9 +302,9 @@
     <label class="f">品名</label>
     <input class="f" type="text" id="mName" placeholder="例: キャベツ">
     <label class="f">カテゴリ</label>
-    <select class="f" id="mCat"></select>
+    <select class="f" id="mCat" onchange="catUnitChanged(this,'cats')"></select>
     <label class="f">単位</label>
-    <select class="f" id="mUnit"></select>
+    <select class="f" id="mUnit" onchange="catUnitChanged(this,'units')"></select>
     <label class="f">今の在庫数</label>
     <input class="f" type="number" id="mStock" inputmode="decimal" min="0" step="0.1">
     <label class="f">発注点(この数を下回ったら要発注)</label>
@@ -337,8 +337,8 @@
 <script>
 "use strict";
 /* ================= データ ================= */
-const CATS  = ["肉","魚","野菜","調味料","酒類","消耗品"];
-const UNITS = ["kg","個","本","袋"];
+const CATS  = ["肉","魚","野菜","調味料","酒類","消耗品"];   // 初期値(以後は db.cats で管理)
+const UNITS = ["kg","個","本","袋"];                          // 初期値(以後は db.units で管理)
 const LS_V2 = "zaiko_app_v2";
 const LS_V1 = "zaiko_app_v1";
 
@@ -377,6 +377,13 @@ const SAMPLE_MENUS = [
 ];
 
 let db = load();
+// カテゴリ・単位の一覧をdbで管理(旧データからの移行: 無ければ初期値+既存食材から補完)
+if(!Array.isArray(db.cats)  || !db.cats.length)  db.cats  = [...CATS];
+if(!Array.isArray(db.units) || !db.units.length) db.units = [...UNITS];
+db.items.forEach(it=>{
+  if(it.cat  && !db.cats.includes(it.cat))   db.cats.push(it.cat);
+  if(it.unit && !db.units.includes(it.unit)) db.units.push(it.unit);
+});
 function buildSampleMenus(items, startId){
   const menus = [];
   SAMPLE_MENUS.forEach((sm,i)=>{
@@ -486,7 +493,7 @@ function renderStock(){
   ).join("");
 
   let list = db.items.filter(it => catFilter==="すべて" || it.cat===catFilter);
-  const catIdx = c => CATS.indexOf(c);
+  const catIdx = c => { const i = db.cats.indexOf(c); return i < 0 ? 999 : i; };
   list.sort((a,b)=>{
     if(isLow(a)!==isLow(b)) return isLow(a) ? -1 : 1;
     if(catIdx(a.cat)!==catIdx(b.cat)) return catIdx(a.cat)-catIdx(b.cat);
@@ -522,11 +529,13 @@ function openItemModal(id){
   editingId = id;
   const it = id ? itemById(id) : null;
   document.getElementById("itemModalTitle").textContent = it ? "食材を直す" : "食材を追加する";
-  document.getElementById("mCat").innerHTML  = CATS.map(c=>'<option>'+c+'</option>').join("");
-  document.getElementById("mUnit").innerHTML = UNITS.map(u=>'<option>'+u+'</option>').join("");
+  document.getElementById("mCat").innerHTML  = catUnitOptions(db.cats);
+  document.getElementById("mUnit").innerHTML = catUnitOptions(db.units);
   document.getElementById("mName").value = it ? it.name : "";
-  document.getElementById("mCat").value  = it ? it.cat : CATS[0];
-  document.getElementById("mUnit").value = it ? it.unit : UNITS[0];
+  const catSel = document.getElementById("mCat"), unitSel = document.getElementById("mUnit");
+  catSel.value  = (it && db.cats.includes(it.cat))   ? it.cat  : db.cats[0];
+  unitSel.value = (it && db.units.includes(it.unit)) ? it.unit : db.units[0];
+  catSel.dataset.prev = catSel.value; unitSel.dataset.prev = unitSel.value;
   document.getElementById("mStock").value   = it ? it.stock : "";
   document.getElementById("mReorder").value = it ? it.reorder : "";
   document.getElementById("mSupplier").value = it ? (it.supplier||"") : "";
@@ -534,6 +543,21 @@ function openItemModal(id){
   document.getElementById("itemModalWrap").classList.add("open");
 }
 function closeItemModal(){ document.getElementById("itemModalWrap").classList.remove("open"); }
+/* ---- カテゴリ・単位の追加 ---- */
+function catUnitOptions(list){
+  return list.map(c=>'<option>'+esc(c)+'</option>').join("") +
+         '<option value="__new__">＋ 新しく追加…</option>';
+}
+function catUnitChanged(sel, key){
+  if(sel.value !== "__new__"){ sel.dataset.prev = sel.value; return; }
+  const label = key === "cats" ? "カテゴリ" : "単位";
+  const v = (prompt("新しい" + label + "を入れてください\n(例: " + (key==="cats"?"デザート・冷凍食品":"g・ml・箱・ケース") + ")") || "").trim();
+  if(!v){ sel.value = sel.dataset.prev || db[key][0]; return; }
+  if(!db[key].includes(v)){ db[key].push(v); save(); }
+  sel.innerHTML = catUnitOptions(db[key]);
+  sel.value = v; sel.dataset.prev = v;
+  toast("「" + v + "」を" + label + "に追加しました");
+}
 function saveItemModal(){
   const name = document.getElementById("mName").value.trim();
   if(!name){ toast("品名を入れてください"); return; }
@@ -628,14 +652,14 @@ function saveMenuModal(){
   }else{
     db.menus.push({id: db.nextMenuId++, name, recipe});
   }
-  save(); closeMenuModal(); renderMenus(); toast("保存しました");
+  save(); closeMenuModal(); renderMenus(); renderSales(); toast("保存しました");
 }
 function deleteMenuModal(){
   if(!editingMenuId) return;
   const m = db.menus.find(x=>x.id===editingMenuId);
   if(!confirm('「' + m.name + '」を削除します。よろしいですか?')) return;
   db.menus = db.menus.filter(x=>x.id!==editingMenuId);
-  save(); closeMenuModal(); renderMenus(); toast("削除しました");
+  save(); closeMenuModal(); renderMenus(); renderSales(); toast("削除しました");
 }
 
 /* ================= 売上入力 ================= */
@@ -657,9 +681,10 @@ function renderSales(){
             '</div>';
         }).join("") +
         '<button class="btn primary" style="margin-top:8px;" onclick="applySales()">まとめて在庫から引く</button>' +
+        '<button class="btn outline" style="margin-top:8px;" onclick="openMenuModal(null)">＋ メニューを追加する</button>' +
         '<div class="note">材料(レシピ)の分だけ在庫が自動で減ります。これを毎日つけると帳簿在庫が実際とほぼ一致し、棚卸しは「✓ 合ってる」を押すだけになります。</div>'
-      : '<div class="empty">メニューが未登録です。<br>「メニューと材料」から登録してください。</div>' +
-        '<button class="btn outline" onclick="go(\'menus\')">🍳 メニューを登録する</button>') +
+      : '<div class="empty">メニューが未登録です。<br>下のボタンから登録してください。</div>' +
+        '<button class="btn outline" onclick="openMenuModal(null)">＋ メニューを追加する</button>') +
     '</div>' +
     '<div class="card"><h2>本日の入力済み</h2>' +
     (todayLogs.length
@@ -714,7 +739,7 @@ function removeUsage(id){
 /* ================= 棚卸し ================= */
 let tana = null; // {ids:[], idx, values:{}, book:{}}
 function tanaSortIds(items){
-  const catIdx = c => CATS.indexOf(c);
+  const catIdx = c => { const i = db.cats.indexOf(c); return i < 0 ? 999 : i; };
   return [...items].sort((a,b)=> catIdx(a.cat)-catIdx(b.cat) || a.name.localeCompare(b.name,"ja")).map(it=>it.id);
 }
 function watchItems(){
@@ -1055,10 +1080,14 @@ function importItemsCsv(input){
       rows.slice(1).forEach(r=>{
         const [name,cat,unit,stock,reorder,supplier] = r;
         if(!name) return;
+        const catV  = (cat||"").trim()  || "調味料";
+        const unitV = (unit||"").trim() || "個";
+        if(!db.cats.includes(catV))   db.cats.push(catV);
+        if(!db.units.includes(unitV)) db.units.push(unitV);
         const data = {
           name: name.trim(),
-          cat: CATS.includes(cat) ? cat : "調味料",
-          unit: UNITS.includes(unit) ? unit : "個",
+          cat: catV,
+          unit: unitV,
           stock: Math.max(0, parseFloat(stock)||0),
           reorder: Math.max(0, parseFloat(reorder)||0),
           supplier: (supplier||"").trim()
