@@ -1,0 +1,1090 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0d9488">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="在庫管理">
+<title>お店の在庫管理</title>
+<style>
+  :root{
+    --grad: linear-gradient(135deg,#0d9488 0%,#0ea5e9 100%);
+    --grad-soft: linear-gradient(135deg,rgba(13,148,136,.12),rgba(14,165,233,.12));
+    --main:#0d9488; --main-dark:#0f766e; --accent:#0ea5e9;
+    --danger:#f43f5e; --danger-bg:#fff1f2; --danger-dark:#be123c;
+    --bg:#f4f6fa; --card:#ffffff; --text:#0f172a; --sub:#64748b;
+    --line:#e2e8f0; --nav-h:66px;
+    --shadow: 0 4px 18px rgba(15,23,42,.07);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text);
+    font-family:"Hiragino Sans","Yu Gothic UI","Meiryo",sans-serif; font-size:16px;}
+  body{padding-bottom:calc(var(--nav-h) + 16px);}
+
+  header.appbar{position:sticky; top:0; z-index:20; background:var(--grad); color:#fff;
+    padding:16px; font-size:19px; font-weight:800; display:flex; align-items:center; gap:8px;
+    border-radius:0 0 20px 20px; box-shadow:0 4px 14px rgba(13,148,136,.25);}
+  header.appbar .sub{font-size:12px; font-weight:500; opacity:.9; margin-left:auto;}
+
+  .screen{display:none; padding:14px; max-width:560px; margin:0 auto;}
+  .screen.active{display:block; animation:fadeUp .2s ease;}
+  @keyframes fadeUp{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+
+  .card{background:var(--card); border-radius:18px; padding:16px; margin-bottom:12px; box-shadow:var(--shadow);}
+  .card h2{margin:0 0 10px; font-size:15px; color:var(--main-dark); letter-spacing:.02em;}
+
+  /* buttons */
+  .btn{display:block; width:100%; border:none; border-radius:16px; padding:16px;
+    font-size:17px; font-weight:800; cursor:pointer; text-align:center; transition:transform .08s;}
+  .btn:active{transform:scale(.97);}
+  .btn.primary{background:var(--grad); color:#fff; box-shadow:0 5px 14px rgba(13,148,136,.35);}
+  .btn.gray{background:#e9edf3; color:var(--text);}
+  .btn.danger{background:var(--danger); color:#fff;}
+  .btn.outline{background:#fff; color:var(--main-dark); border:2px solid var(--main); box-shadow:var(--shadow);}
+  .btn + .btn{margin-top:10px;}
+  .btn.small{padding:11px; font-size:14px; border-radius:12px;}
+  .btnrow{display:flex; gap:10px;}
+  .btnrow .btn{flex:1;}
+
+  /* home */
+  .hero{border-radius:20px; padding:18px; margin-bottom:14px; cursor:pointer; box-shadow:var(--shadow);}
+  .hero.bad{background:linear-gradient(135deg,#fff1f2,#ffe4e6); border:2px solid var(--danger);}
+  .hero.ok{background:var(--grad); color:#fff;}
+  .hero .big{font-size:25px; font-weight:900;}
+  .hero.bad .big{color:var(--danger-dark);}
+  .hero .hint{font-size:12px; margin-top:4px; opacity:.85;}
+  .hero.bad .hint{color:#9f1239;}
+  ul.alertlist{list-style:none; margin:10px 0 0; padding:0;}
+  ul.alertlist li{padding:6px 0; border-top:1px dashed #fda4af; font-size:14px; color:var(--danger-dark); font-weight:700;}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;}
+  .tile{border:none; border-radius:18px; padding:16px 8px; background:#fff; box-shadow:var(--shadow);
+    cursor:pointer; text-align:center; transition:transform .08s;}
+  .tile:active{transform:scale(.96);}
+  .tile .ic{font-size:30px; display:block; margin-bottom:6px;}
+  .tile .t{font-size:15px; font-weight:800; color:var(--text);}
+  .tile .d{font-size:11px; color:var(--sub); margin-top:3px;}
+  .tile.main{background:var(--grad);}
+  .tile.main .t,.tile.main .d{color:#fff;}
+  .tile.main .d{opacity:.9;}
+
+  /* inventory list */
+  .invrow{display:flex; align-items:center; gap:8px; background:var(--card);
+    border-radius:16px; padding:10px 12px; margin-bottom:8px; box-shadow:var(--shadow);}
+  .invrow.low{background:var(--danger-bg); border:2px solid var(--danger);}
+  .invrow .info{flex:1; min-width:0; cursor:pointer;}
+  .invrow .name{font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .invrow.low .name{color:var(--danger-dark);}
+  .invrow .meta{font-size:11px; color:var(--sub); margin-top:2px;}
+  .invrow.low .meta{color:#c2596e;}
+  .invrow .qty{font-size:19px; font-weight:900; min-width:62px; text-align:center;}
+  .invrow .qty .unit{font-size:11px; font-weight:500; color:var(--sub);}
+  .stepbtn{width:50px; height:50px; border-radius:14px; border:none; font-size:25px;
+    font-weight:900; cursor:pointer; flex-shrink:0; transition:transform .08s;}
+  .stepbtn.minus{background:#e9edf3; color:var(--text);}
+  .stepbtn.plus{background:var(--grad); color:#fff;}
+  .stepbtn:active{transform:scale(.92);}
+  .catchips{display:flex; gap:6px; overflow-x:auto; padding:2px 0 12px; -webkit-overflow-scrolling:touch;}
+  .chip{flex-shrink:0; border:none; background:#fff; border-radius:999px; box-shadow:var(--shadow);
+    padding:9px 15px; font-size:13px; font-weight:600; cursor:pointer; color:var(--sub);}
+  .chip.on{background:var(--grad); color:#fff; font-weight:800;}
+
+  /* forms */
+  label.f{display:block; font-size:12px; color:var(--sub); margin:12px 0 5px; font-weight:700;}
+  input.f, select.f{width:100%; padding:14px; font-size:17px; border:1.5px solid var(--line);
+    border-radius:12px; background:#fff; color:var(--text);}
+  input.f:focus, select.f:focus{outline:2px solid var(--main); border-color:var(--main);}
+
+  /* tanaoroshi */
+  .tanaCard{text-align:center;}
+  .tanaCard .prog{font-size:12px; color:var(--sub); font-weight:600;}
+  .progbar{height:8px; background:#e9edf3; border-radius:99px; margin:8px 0 16px; overflow:hidden;}
+  .progbar > div{height:100%; background:var(--grad); border-radius:99px; transition:width .25s;}
+  .tanaCard .cat{display:inline-block; background:var(--grad-soft); color:var(--main-dark);
+    border-radius:999px; padding:5px 14px; font-size:12px; font-weight:800;}
+  .tanaCard .iname{font-size:25px; font-weight:900; margin:10px 0 12px;}
+  .bookbox{background:var(--grad-soft); border-radius:16px; padding:14px; margin-bottom:14px;}
+  .bookbox .l{font-size:12px; color:var(--sub); font-weight:700;}
+  .bookbox .v{font-size:38px; font-weight:900; color:var(--main-dark); line-height:1.2;}
+  .bookbox .v .u{font-size:15px; font-weight:600;}
+  .tanaNum{display:flex; align-items:center; justify-content:center; gap:10px; margin:10px 0 14px;}
+  .tanaNum input{width:110px; text-align:center; font-size:28px; font-weight:900;
+    padding:12px 4px; border:2px solid var(--main); border-radius:14px;}
+  .tanaNum .stepbtn{width:58px; height:58px; font-size:28px;}
+  .micbtn{width:58px; height:58px; border-radius:14px; border:none; background:#fff;
+    box-shadow:var(--shadow); font-size:24px; cursor:pointer; flex-shrink:0;}
+  .micbtn.rec{background:var(--danger); animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.5);} 50%{box-shadow:0 0 0 10px rgba(244,63,94,0);}}
+  details.fix{margin:0 0 14px;}
+  details.fix summary{font-size:14px; color:var(--sub); font-weight:700; cursor:pointer; padding:8px;
+    list-style:none;}
+  details.fix summary::-webkit-details-marker{display:none;}
+  table.diff{width:100%; border-collapse:collapse; font-size:14px;}
+  table.diff th, table.diff td{padding:9px 4px; border-bottom:1px solid var(--line); text-align:right;}
+  table.diff th{color:var(--sub); font-weight:700; font-size:11px;}
+  table.diff th:first-child, table.diff td:first-child{text-align:left;}
+  td.minus{color:var(--danger-dark); font-weight:800;}
+  td.plus{color:var(--main-dark); font-weight:800;}
+
+  /* order */
+  .ordgroup{margin-bottom:14px;}
+  .ordgroup .gname{font-size:14px; font-weight:900; color:var(--main-dark); margin-bottom:6px;}
+  .ordrow{display:flex; align-items:center; gap:8px; padding:9px 0; border-bottom:1px dashed var(--line);}
+  .ordrow .n{flex:1; font-size:14px; font-weight:700;}
+  .ordrow input{width:78px; text-align:center; font-size:17px; font-weight:800;
+    padding:10px 4px; border:1.5px solid var(--line); border-radius:12px;}
+  .ordrow .u{font-size:12px; color:var(--sub); width:32px;}
+  textarea.ordtext{width:100%; height:170px; font-size:14px; padding:12px;
+    border:1.5px solid var(--line); border-radius:12px; font-family:inherit;}
+
+  /* sales & menu */
+  .menurow{display:flex; align-items:center; gap:8px; background:var(--card);
+    border-radius:16px; padding:12px; margin-bottom:8px; box-shadow:var(--shadow);}
+  .menurow .info{flex:1; min-width:0; cursor:pointer;}
+  .menurow .name{font-size:15px; font-weight:800;}
+  .menurow .meta{font-size:11px; color:var(--sub); margin-top:2px; overflow:hidden;
+    display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;}
+  .menurow .cnt{font-size:21px; font-weight:900; min-width:44px; text-align:center; color:var(--main-dark);}
+  .reciperow{display:flex; align-items:center; gap:6px; margin-bottom:8px;}
+  .reciperow select{flex:1; min-width:0; padding:11px 8px; font-size:14px; border:1.5px solid var(--line); border-radius:10px; background:#fff;}
+  .reciperow input{width:74px; padding:11px 4px; text-align:center; font-size:15px; font-weight:700;
+    border:1.5px solid var(--line); border-radius:10px;}
+  .reciperow .u{font-size:12px; color:var(--sub); width:26px;}
+  .reciperow .del{border:none; background:#fee2e2; color:var(--danger-dark); border-radius:10px;
+    width:38px; height:38px; font-size:16px; cursor:pointer; flex-shrink:0;}
+
+  /* purchase / logs */
+  .recrow{display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px dashed var(--line); font-size:14px;}
+  .recrow .d{color:var(--sub); font-size:11px; width:44px; flex-shrink:0;}
+  .recrow .n{flex:1; min-width:0;}
+  .recrow .n b{display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:14px;}
+  .recrow .n span{font-size:11px; color:var(--sub);}
+  .recrow .a{font-weight:800; white-space:nowrap; font-size:14px;}
+  .recrow button{border:none; background:#fee2e2; color:var(--danger-dark); border-radius:10px;
+    padding:9px 11px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;}
+  .sumrow{display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px dashed var(--line); font-size:15px;}
+  .sumrow.total{font-size:18px; font-weight:900; color:var(--main-dark); border-bottom:2px solid var(--main);}
+
+  /* bottom nav */
+  nav.bottom{position:fixed; left:0; right:0; bottom:0; height:var(--nav-h);
+    background:rgba(255,255,255,.92); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
+    border-top:1px solid var(--line); display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom);}
+  nav.bottom button{flex:1; border:none; background:none; font-size:10.5px; color:var(--sub);
+    cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; position:relative; font-weight:600;}
+  nav.bottom button .ic{font-size:21px; padding:2px 14px; border-radius:999px; transition:background .15s;}
+  nav.bottom button.on{color:var(--main-dark); font-weight:900;}
+  nav.bottom button.on .ic{background:var(--grad-soft);}
+  nav.bottom button .badge{position:absolute; top:5px; right:calc(50% - 26px);
+    background:var(--danger); color:#fff; font-size:10px; font-weight:900;
+    border-radius:999px; min-width:17px; height:17px; line-height:17px; padding:0 3px;}
+
+  /* modal */
+  .modalwrap{display:none; position:fixed; inset:0; background:rgba(15,23,42,.5); z-index:50;
+    align-items:flex-end; justify-content:center;}
+  .modalwrap.open{display:flex;}
+  .modal{background:#fff; width:100%; max-width:560px; border-radius:22px 22px 0 0;
+    padding:20px 16px 26px; max-height:88vh; overflow-y:auto; animation:slideUp .22s ease;}
+  @keyframes slideUp{from{transform:translateY(40px); opacity:.5;} to{transform:none; opacity:1;}}
+  .modal h3{margin:0 0 4px; font-size:18px;}
+
+  #toast{position:fixed; left:50%; bottom:calc(var(--nav-h) + 22px); transform:translateX(-50%);
+    background:#0f172a; color:#fff; padding:13px 22px; border-radius:999px; font-size:14px; font-weight:600;
+    opacity:0; pointer-events:none; transition:opacity .25s; z-index:99; white-space:nowrap; box-shadow:0 6px 20px rgba(0,0,0,.3);}
+  #toast.show{opacity:1;}
+  .empty{text-align:center; color:var(--sub); padding:26px 0; font-size:14px;}
+  .note{font-size:11.5px; color:var(--sub); margin-top:8px; line-height:1.6;}
+</style>
+</head>
+<body>
+
+<header class="appbar">🍽 お店の在庫管理<span class="sub" id="todayLabel"></span></header>
+
+<!-- ============ ホーム ============ -->
+<div class="screen active" id="scr-home">
+  <div id="homeAlert"></div>
+  <div class="grid2">
+    <button class="tile main" onclick="go('sales')"><span class="ic">🧾</span><span class="t">売上を入力する</span><div class="d">売れた数だけで在庫が減る</div></button>
+    <button class="tile" onclick="startTana()"><span class="ic">✅</span><span class="t">棚卸しする</span><div class="d">合ってるを押すだけ</div></button>
+    <button class="tile" onclick="go('order')"><span class="ic">📋</span><span class="t">発注リストを見る</span><div class="d">コピーしてLINEへ</div></button>
+    <button class="tile" onclick="go('purchase')"><span class="ic">🛒</span><span class="t">仕入れを記録する</span><div class="d">在庫に自動で入る</div></button>
+    <button class="tile" onclick="go('stock')"><span class="ic">📦</span><span class="t">在庫を見る</span><div class="d">＋/−でその場で直す</div></button>
+    <button class="tile" onclick="go('menus')"><span class="ic">🍳</span><span class="t">メニューと材料</span><div class="d">レシピを登録する</div></button>
+  </div>
+
+  <div class="card">
+    <h2>データの保存・読み込み</h2>
+    <div class="btnrow">
+      <button class="btn gray small" onclick="exportItemsCsv()">在庫をCSV保存</button>
+      <button class="btn gray small" onclick="exportPurchasesCsv()">仕入れをCSV保存</button>
+    </div>
+    <button class="btn gray small" style="margin-top:10px;" onclick="document.getElementById('csvFile').click()">CSVから在庫を読み込む</button>
+    <input type="file" id="csvFile" accept=".csv,text/csv" style="display:none" onchange="importItemsCsv(this)">
+    <div class="note">データはこの端末の中に自動保存されます。CSV保存は控え(バックアップ)としてお使いください。</div>
+  </div>
+</div>
+
+<!-- ============ 在庫 ============ -->
+<div class="screen" id="scr-stock">
+  <div class="catchips" id="catChips"></div>
+  <div id="invList"></div>
+  <button class="btn primary" onclick="openItemModal(null)">＋ 食材を追加する</button>
+</div>
+
+<!-- ============ 売上入力 ============ -->
+<div class="screen" id="scr-sales">
+  <div id="salesBody"></div>
+</div>
+
+<!-- ============ メニュー ============ -->
+<div class="screen" id="scr-menus">
+  <div id="menuList"></div>
+  <button class="btn primary" onclick="openMenuModal(null)">＋ メニューを追加する</button>
+  <div class="note">メニューに「1人前で使う材料」を登録しておくと、売上入力だけで在庫が自動で減り、棚卸しで数える必要がなくなります。</div>
+</div>
+
+<!-- ============ 棚卸し ============ -->
+<div class="screen" id="scr-tana">
+  <div id="tanaBody"></div>
+</div>
+
+<!-- ============ 発注 ============ -->
+<div class="screen" id="scr-order">
+  <div id="orderBody"></div>
+</div>
+
+<!-- ============ 仕入れ ============ -->
+<div class="screen" id="scr-purchase">
+  <div class="card">
+    <h2>仕入れを記録する</h2>
+    <label class="f">仕入れた日</label>
+    <input class="f" type="date" id="pDate">
+    <label class="f">仕入れ先</label>
+    <input class="f" type="text" id="pSupplier" list="supplierList" placeholder="例: 八百屋いしかわ">
+    <datalist id="supplierList"></datalist>
+    <label class="f">品名</label>
+    <select class="f" id="pItem"></select>
+    <label class="f">数量</label>
+    <input class="f" type="number" id="pQty" inputmode="decimal" min="0" step="0.1" placeholder="例: 3">
+    <label class="f">金額(円)</label>
+    <input class="f" type="number" id="pAmount" inputmode="numeric" min="0" step="1" placeholder="例: 1500">
+    <button class="btn primary" style="margin-top:16px;" onclick="addPurchase()">記録して在庫に入れる</button>
+  </div>
+
+  <div class="card">
+    <h2>月ごとの仕入れ金額</h2>
+    <input class="f" type="month" id="pMonth" onchange="renderPurchase()">
+    <div id="pSummary" style="margin-top:10px;"></div>
+  </div>
+
+  <div class="card">
+    <h2>最近の仕入れ</h2>
+    <div id="pRecent"></div>
+  </div>
+</div>
+
+<!-- ============ 下部ナビ ============ -->
+<nav class="bottom">
+  <button id="nav-home" onclick="go('home')"><span class="ic">🏠</span>ホーム</button>
+  <button id="nav-stock" onclick="go('stock')"><span class="ic">📦</span>在庫</button>
+  <button id="nav-sales" onclick="go('sales')"><span class="ic">🧾</span>売上</button>
+  <button id="nav-tana" onclick="startTana()"><span class="ic">✅</span>棚卸し</button>
+  <button id="nav-order" onclick="go('order')"><span class="ic">📋</span>発注<span class="badge" id="orderBadge" style="display:none"></span></button>
+</nav>
+
+<!-- ============ 食材 追加/編集 モーダル ============ -->
+<div class="modalwrap" id="itemModalWrap" onclick="if(event.target===this)closeItemModal()">
+  <div class="modal">
+    <h3 id="itemModalTitle">食材を追加する</h3>
+    <label class="f">品名</label>
+    <input class="f" type="text" id="mName" placeholder="例: キャベツ">
+    <label class="f">カテゴリ</label>
+    <select class="f" id="mCat"></select>
+    <label class="f">単位</label>
+    <select class="f" id="mUnit"></select>
+    <label class="f">今の在庫数</label>
+    <input class="f" type="number" id="mStock" inputmode="decimal" min="0" step="0.1">
+    <label class="f">発注点(この数を下回ったら要発注)</label>
+    <input class="f" type="number" id="mReorder" inputmode="decimal" min="0" step="0.1">
+    <label class="f">仕入れ先</label>
+    <input class="f" type="text" id="mSupplier" list="supplierList" placeholder="例: 業務スーパー">
+    <button class="btn primary" style="margin-top:18px;" onclick="saveItemModal()">保存する</button>
+    <button class="btn danger" id="mDeleteBtn" onclick="deleteItemModal()">この食材を削除する</button>
+    <button class="btn gray" onclick="closeItemModal()">やめる</button>
+  </div>
+</div>
+
+<!-- ============ メニュー 追加/編集 モーダル ============ -->
+<div class="modalwrap" id="menuModalWrap" onclick="if(event.target===this)closeMenuModal()">
+  <div class="modal">
+    <h3 id="menuModalTitle">メニューを追加する</h3>
+    <label class="f">メニュー名</label>
+    <input class="f" type="text" id="mmName" placeholder="例: 鶏の唐揚げ">
+    <label class="f">1人前で使う材料</label>
+    <div id="recipeRows"></div>
+    <button class="btn gray small" onclick="addRecipeRow()">＋ 材料を追加</button>
+    <button class="btn primary" style="margin-top:18px;" onclick="saveMenuModal()">保存する</button>
+    <button class="btn danger" id="mmDeleteBtn" onclick="deleteMenuModal()">このメニューを削除する</button>
+    <button class="btn gray" onclick="closeMenuModal()">やめる</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ================= データ ================= */
+const CATS  = ["肉","魚","野菜","調味料","酒類","消耗品"];
+const UNITS = ["kg","個","本","袋"];
+const LS_V2 = "zaiko_app_v2";
+const LS_V1 = "zaiko_app_v1";
+
+const SAMPLE_ITEMS = [
+  ["鶏もも肉","肉","kg",5,3,"精肉店マルヨシ"],
+  ["豚バラ肉","肉","kg",4,2,"精肉店マルヨシ"],
+  ["牛切り落とし","肉","kg",2,1,"精肉店マルヨシ"],
+  ["サーモン(刺身用)","魚","kg",1.5,1,"鮮魚やまだ"],
+  ["サバ","魚","本",6,4,"鮮魚やまだ"],
+  ["イカ","魚","本",5,3,"鮮魚やまだ"],
+  ["キャベツ","野菜","個",4,2,"八百屋いしかわ"],
+  ["玉ねぎ","野菜","袋",3,2,"八百屋いしかわ"],
+  ["じゃがいも","野菜","袋",2,1,"八百屋いしかわ"],
+  ["長ねぎ","野菜","本",10,5,"八百屋いしかわ"],
+  ["トマト","野菜","個",8,4,"八百屋いしかわ"],
+  ["きゅうり","野菜","本",12,6,"八百屋いしかわ"],
+  ["醤油","調味料","本",3,1,"業務スーパー"],
+  ["味噌","調味料","袋",2,1,"業務スーパー"],
+  ["サラダ油","調味料","本",4,2,"業務スーパー"],
+  ["塩","調味料","袋",2,1,"業務スーパー"],
+  ["瓶ビール","酒類","本",24,12,"酒販カネダ"],
+  ["日本酒(一升瓶)","酒類","本",4,2,"酒販カネダ"],
+  ["焼酎(甲類)","酒類","本",3,2,"酒販カネダ"],
+  ["割り箸","消耗品","袋",5,2,"業務スーパー"],
+  ["おしぼり","消耗品","袋",4,2,"業務スーパー"],
+];
+// [メニュー名, [[材料名, 1人前の量], ...]]
+const SAMPLE_MENUS = [
+  ["鶏の唐揚げ",[["鶏もも肉",0.25],["サラダ油",0.05]]],
+  ["豚バラ串(2本)",[["豚バラ肉",0.12],["長ねぎ",0.5]]],
+  ["サバの塩焼き",[["サバ",1],["塩",0.02]]],
+  ["刺身盛り合わせ",[["サーモン(刺身用)",0.15],["イカ",0.5]]],
+  ["ポテトサラダ",[["じゃがいも",0.25],["きゅうり",0.5],["玉ねぎ",0.1]]],
+  ["冷やしトマト",[["トマト",1]]],
+  ["瓶ビール",[["瓶ビール",1]]],
+];
+
+let db = load();
+function buildSampleMenus(items, startId){
+  const menus = [];
+  SAMPLE_MENUS.forEach((sm,i)=>{
+    const recipe = sm[1]
+      .map(r=>{ const it = items.find(x=>x.name===r[0]); return it ? {itemId:it.id, qty:r[1]} : null; })
+      .filter(Boolean);
+    if(recipe.length) menus.push({id:startId+i, name:sm[0], recipe});
+  });
+  return menus;
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_V2);
+    if(raw){ const d = JSON.parse(raw); if(d && Array.isArray(d.items)) return d; }
+  }catch(e){}
+  // 旧バージョン(v1)からの引き継ぎ
+  try{
+    const raw1 = localStorage.getItem(LS_V1);
+    if(raw1){
+      const d1 = JSON.parse(raw1);
+      if(d1 && Array.isArray(d1.items)){
+        return {
+          nextId: d1.nextId||1000, items: d1.items,
+          purchases: d1.purchases||[], lastTana: d1.lastTana||null,
+          menus: buildSampleMenus(d1.items, 1), nextMenuId: SAMPLE_MENUS.length+1,
+          usage: []
+        };
+      }
+    }
+  }catch(e){}
+  const items = SAMPLE_ITEMS.map((s,i)=>({id:i+1,name:s[0],cat:s[1],unit:s[2],stock:s[3],reorder:s[4],supplier:s[5]}));
+  return {
+    nextId: SAMPLE_ITEMS.length + 1, items,
+    purchases: [], lastTana: null,
+    menus: buildSampleMenus(items, 1), nextMenuId: SAMPLE_MENUS.length + 1,
+    usage: []
+  };
+}
+function save(){ localStorage.setItem(LS_V2, JSON.stringify(db)); }
+
+/* ================= 共通 ================= */
+function esc(s){ return String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function fmt(n){ const v = Math.round(n*100)/100; return String(v); }
+function yen(n){ return "¥" + Math.round(n).toLocaleString("ja-JP"); }
+function today(){ const d=new Date(); return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
+function step(unit){ return unit==="kg" ? 0.5 : 1; }
+function isLow(it){ return it.stock < it.reorder; }
+function lowItems(){ return db.items.filter(isLow); }
+function itemById(id){ return db.items.find(x=>x.id===id); }
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._tm); t._tm = setTimeout(()=>t.classList.remove("show"), 2000);
+}
+
+/* ================= 画面切替 ================= */
+function go(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("scr-"+name).classList.add("active");
+  document.querySelectorAll("nav.bottom button").forEach(b=>b.classList.remove("on"));
+  const nb = document.getElementById("nav-"+name); if(nb) nb.classList.add("on");
+  if(name==="home") renderHome();
+  if(name==="stock") renderStock();
+  if(name==="sales") renderSales();
+  if(name==="menus") renderMenus();
+  if(name==="order") renderOrder();
+  if(name==="purchase") renderPurchase();
+  window.scrollTo(0,0);
+}
+function refreshBadge(){
+  const n = lowItems().length;
+  const b = document.getElementById("orderBadge");
+  b.style.display = n ? "block" : "none";
+  b.textContent = n;
+}
+
+/* ================= ホーム ================= */
+function renderHome(){
+  const low = lowItems();
+  const box = document.getElementById("homeAlert");
+  const todaySales = db.usage.filter(u=>u.date===today()).reduce((s,u)=>s+u.count,0);
+  const salesNote = todaySales ? '　🧾 本日の売上入力 ' + todaySales + '品' : '';
+  if(low.length){
+    box.innerHTML =
+      '<div class="hero bad" onclick="go(\'order\')">' +
+      '<div class="big">⚠ 要発注 ' + low.length + '品目</div>' +
+      '<div class="hint">本日の在庫アラート(タップで発注リストへ)' + salesNote + '</div>' +
+      '<ul class="alertlist">' +
+      low.slice(0,5).map(it=>'<li>' + esc(it.name) + '　残り ' + fmt(it.stock) + it.unit + '(発注点 ' + fmt(it.reorder) + ')</li>').join("") +
+      (low.length>5 ? '<li>ほか ' + (low.length-5) + '品目…</li>' : "") +
+      '</ul></div>';
+  }else{
+    box.innerHTML =
+      '<div class="hero ok"><div class="big">✅ 要発注 0品目</div>' +
+      '<div class="hint">本日の在庫アラートはありません' +
+      (db.lastTana ? '(前回の棚卸し: ' + esc(db.lastTana) + ')' : '') + salesNote + '</div></div>';
+  }
+  refreshBadge();
+}
+
+/* ================= 在庫 ================= */
+let catFilter = "すべて";
+function renderStock(){
+  const chips = ["すべて", ...CATS];
+  document.getElementById("catChips").innerHTML = chips.map(c=>
+    '<button class="chip' + (c===catFilter?" on":"") + '" onclick="setCat(\'' + c + '\')">' + c + '</button>'
+  ).join("");
+
+  let list = db.items.filter(it => catFilter==="すべて" || it.cat===catFilter);
+  const catIdx = c => CATS.indexOf(c);
+  list.sort((a,b)=>{
+    if(isLow(a)!==isLow(b)) return isLow(a) ? -1 : 1;
+    if(catIdx(a.cat)!==catIdx(b.cat)) return catIdx(a.cat)-catIdx(b.cat);
+    return a.name.localeCompare(b.name,"ja");
+  });
+
+  const el = document.getElementById("invList");
+  if(!list.length){ el.innerHTML = '<div class="empty">食材がありません。「＋ 食材を追加する」から登録してください。</div>'; refreshBadge(); return; }
+  el.innerHTML = list.map(it=>{
+    const low = isLow(it);
+    return '<div class="invrow' + (low?" low":"") + '">' +
+      '<div class="info" onclick="openItemModal(' + it.id + ')">' +
+        '<div class="name">' + (low?"⚠ ":"") + esc(it.name) + '</div>' +
+        '<div class="meta">' + esc(it.cat) + '｜発注点 ' + fmt(it.reorder) + it.unit + '｜' + esc(it.supplier||"仕入れ先未設定") + '</div>' +
+      '</div>' +
+      '<button class="stepbtn minus" onclick="bump(' + it.id + ',-1)">−</button>' +
+      '<div class="qty">' + fmt(it.stock) + '<span class="unit">' + it.unit + '</span></div>' +
+      '<button class="stepbtn plus" onclick="bump(' + it.id + ',1)">＋</button>' +
+    '</div>';
+  }).join("");
+  refreshBadge();
+}
+function setCat(c){ catFilter = c; renderStock(); }
+function bump(id, dir){
+  const it = itemById(id); if(!it) return;
+  it.stock = Math.max(0, Math.round((it.stock + dir*step(it.unit))*100)/100);
+  save(); renderStock();
+}
+
+/* ---- 食材モーダル ---- */
+let editingId = null;
+function openItemModal(id){
+  editingId = id;
+  const it = id ? itemById(id) : null;
+  document.getElementById("itemModalTitle").textContent = it ? "食材を直す" : "食材を追加する";
+  document.getElementById("mCat").innerHTML  = CATS.map(c=>'<option>'+c+'</option>').join("");
+  document.getElementById("mUnit").innerHTML = UNITS.map(u=>'<option>'+u+'</option>').join("");
+  document.getElementById("mName").value = it ? it.name : "";
+  document.getElementById("mCat").value  = it ? it.cat : CATS[0];
+  document.getElementById("mUnit").value = it ? it.unit : UNITS[0];
+  document.getElementById("mStock").value   = it ? it.stock : "";
+  document.getElementById("mReorder").value = it ? it.reorder : "";
+  document.getElementById("mSupplier").value = it ? (it.supplier||"") : "";
+  document.getElementById("mDeleteBtn").style.display = it ? "block" : "none";
+  document.getElementById("itemModalWrap").classList.add("open");
+}
+function closeItemModal(){ document.getElementById("itemModalWrap").classList.remove("open"); }
+function saveItemModal(){
+  const name = document.getElementById("mName").value.trim();
+  if(!name){ toast("品名を入れてください"); return; }
+  const stock   = parseFloat(document.getElementById("mStock").value)   || 0;
+  const reorder = parseFloat(document.getElementById("mReorder").value) || 0;
+  const data = {
+    name, cat: document.getElementById("mCat").value,
+    unit: document.getElementById("mUnit").value,
+    stock: Math.max(0,stock), reorder: Math.max(0,reorder),
+    supplier: document.getElementById("mSupplier").value.trim()
+  };
+  if(editingId){
+    Object.assign(itemById(editingId), data);
+  }else{
+    db.items.push({id: db.nextId++, ...data});
+  }
+  save(); closeItemModal(); renderStock(); refreshBadge(); toast("保存しました");
+}
+function deleteItemModal(){
+  if(!editingId) return;
+  const it = itemById(editingId);
+  const usedBy = db.menus.filter(m=>m.recipe.some(r=>r.itemId===editingId));
+  let msg = '「' + it.name + '」を削除します。';
+  if(usedBy.length) msg += '\n※ メニュー(' + usedBy.map(m=>m.name).join("・") + ')の材料からも外れます。';
+  if(!confirm(msg + '\nよろしいですか?')) return;
+  db.items = db.items.filter(x=>x.id!==editingId);
+  db.menus.forEach(m=>{ m.recipe = m.recipe.filter(r=>r.itemId!==editingId); });
+  save(); closeItemModal(); renderStock(); refreshBadge(); toast("削除しました");
+}
+
+/* ================= メニュー ================= */
+function recipeText(m){
+  return m.recipe.map(r=>{
+    const it = itemById(r.itemId);
+    return it ? esc(it.name) + ' ' + fmt(r.qty) + it.unit : null;
+  }).filter(Boolean).join("・") || "材料が未登録です";
+}
+function renderMenus(){
+  const el = document.getElementById("menuList");
+  if(!db.menus.length){ el.innerHTML = '<div class="empty">メニューがまだありません。<br>「＋ メニューを追加する」から登録してください。</div>'; return; }
+  el.innerHTML = db.menus.map(m=>
+    '<div class="menurow"><div class="info" onclick="openMenuModal(' + m.id + ')">' +
+    '<div class="name">🍳 ' + esc(m.name) + '</div>' +
+    '<div class="meta">1人前: ' + recipeText(m) + '</div>' +
+    '</div><div style="color:var(--sub);font-size:20px;">›</div></div>'
+  ).join("");
+}
+/* ---- メニューモーダル ---- */
+let editingMenuId = null;
+let editRecipe = [];
+function openMenuModal(id){
+  editingMenuId = id;
+  const m = id ? db.menus.find(x=>x.id===id) : null;
+  document.getElementById("menuModalTitle").textContent = m ? "メニューを直す" : "メニューを追加する";
+  document.getElementById("mmName").value = m ? m.name : "";
+  editRecipe = m ? m.recipe.map(r=>({...r})) : [];
+  if(!editRecipe.length) editRecipe.push({itemId: db.items.length?db.items[0].id:0, qty: 1});
+  document.getElementById("mmDeleteBtn").style.display = m ? "block" : "none";
+  renderRecipeRows();
+  document.getElementById("menuModalWrap").classList.add("open");
+}
+function closeMenuModal(){ document.getElementById("menuModalWrap").classList.remove("open"); }
+function renderRecipeRows(){
+  document.getElementById("recipeRows").innerHTML = editRecipe.map((r,i)=>{
+    const it = itemById(r.itemId);
+    return '<div class="reciperow">' +
+      '<select onchange="setRecipeItem(' + i + ',this.value)">' +
+      db.items.map(x=>'<option value="' + x.id + '"' + (x.id===r.itemId?" selected":"") + '>' + esc(x.name) + '</option>').join("") +
+      '</select>' +
+      '<input type="number" inputmode="decimal" min="0" step="0.01" value="' + fmt(r.qty) + '" onchange="setRecipeQty(' + i + ',this.value)">' +
+      '<span class="u">' + (it?it.unit:"") + '</span>' +
+      '<button class="del" onclick="removeRecipeRow(' + i + ')">✕</button>' +
+      '</div>';
+  }).join("");
+}
+function setRecipeItem(i,v){ editRecipe[i].itemId = parseInt(v,10); renderRecipeRows(); }
+function setRecipeQty(i,v){ editRecipe[i].qty = Math.max(0, parseFloat(v)||0); }
+function addRecipeRow(){
+  if(!db.items.length){ toast("先に食材を登録してください"); return; }
+  editRecipe.push({itemId: db.items[0].id, qty: 1});
+  renderRecipeRows();
+}
+function removeRecipeRow(i){ editRecipe.splice(i,1); renderRecipeRows(); }
+function saveMenuModal(){
+  const name = document.getElementById("mmName").value.trim();
+  if(!name){ toast("メニュー名を入れてください"); return; }
+  const recipe = editRecipe.filter(r=>r.qty>0 && itemById(r.itemId));
+  if(!recipe.length){ toast("材料を1つ以上入れてください"); return; }
+  if(editingMenuId){
+    const m = db.menus.find(x=>x.id===editingMenuId);
+    m.name = name; m.recipe = recipe;
+  }else{
+    db.menus.push({id: db.nextMenuId++, name, recipe});
+  }
+  save(); closeMenuModal(); renderMenus(); toast("保存しました");
+}
+function deleteMenuModal(){
+  if(!editingMenuId) return;
+  const m = db.menus.find(x=>x.id===editingMenuId);
+  if(!confirm('「' + m.name + '」を削除します。よろしいですか?')) return;
+  db.menus = db.menus.filter(x=>x.id!==editingMenuId);
+  save(); closeMenuModal(); renderMenus(); toast("削除しました");
+}
+
+/* ================= 売上入力 ================= */
+let salesCounts = {};
+function renderSales(){
+  const el = document.getElementById("salesBody");
+  const todayLogs = db.usage.filter(u=>u.date===today());
+  el.innerHTML =
+    '<div class="card"><h2>🧾 本日売れた数を入れる(' + esc(today().slice(5).replace("-","/")) + ')</h2>' +
+    (db.menus.length
+      ? db.menus.map(m=>{
+          const c = salesCounts[m.id]||0;
+          return '<div class="menurow">' +
+            '<div class="info"><div class="name">' + esc(m.name) + '</div>' +
+            '<div class="meta">' + recipeText(m) + '</div></div>' +
+            '<button class="stepbtn minus" onclick="salesBump(' + m.id + ',-1)">−</button>' +
+            '<div class="cnt">' + c + '</div>' +
+            '<button class="stepbtn plus" onclick="salesBump(' + m.id + ',1)">＋</button>' +
+            '</div>';
+        }).join("") +
+        '<button class="btn primary" style="margin-top:8px;" onclick="applySales()">まとめて在庫から引く</button>' +
+        '<div class="note">材料(レシピ)の分だけ在庫が自動で減ります。これを毎日つけると帳簿在庫が実際とほぼ一致し、棚卸しは「✓ 合ってる」を押すだけになります。</div>'
+      : '<div class="empty">メニューが未登録です。<br>「メニューと材料」から登録してください。</div>' +
+        '<button class="btn outline" onclick="go(\'menus\')">🍳 メニューを登録する</button>') +
+    '</div>' +
+    '<div class="card"><h2>本日の入力済み</h2>' +
+    (todayLogs.length
+      ? todayLogs.slice().reverse().map(u=>
+          '<div class="recrow"><div class="n"><b>' + esc(u.menuName) + ' × ' + u.count + '</b>' +
+          '<span>' + u.deductions.map(d=>esc(d.name)+' −'+fmt(d.qty)+d.unit).join("　") + '</span></div>' +
+          '<button onclick="removeUsage(' + u.id + ')">取消</button></div>'
+        ).join("")
+      : '<div class="empty">まだ入力がありません</div>') +
+    '</div>';
+}
+function salesBump(menuId, dir){
+  salesCounts[menuId] = Math.max(0, (salesCounts[menuId]||0) + dir);
+  renderSales();
+}
+let uNextId = null;
+function usageNextId(){
+  if(uNextId===null) uNextId = db.usage.reduce((m,u)=>Math.max(m,u.id),0) + 1;
+  return uNextId++;
+}
+function applySales(){
+  const date = today();
+  let total = 0;
+  db.menus.forEach(m=>{
+    const c = salesCounts[m.id]||0; if(!c) return;
+    const ded = [];
+    m.recipe.forEach(r=>{
+      const it = itemById(r.itemId); if(!it) return;
+      const q = Math.round(r.qty*c*100)/100;
+      it.stock = Math.max(0, Math.round((it.stock - q)*100)/100);
+      ded.push({itemId:it.id, name:it.name, qty:q, unit:it.unit});
+    });
+    db.usage.push({id:usageNextId(), date, menuId:m.id, menuName:m.name, count:c, deductions:ded});
+    total += c;
+  });
+  if(!total){ toast("売れた数を＋で入れてください"); return; }
+  salesCounts = {};
+  save(); renderSales(); refreshBadge();
+  toast(total + "品ぶんの材料を在庫から引きました");
+}
+function removeUsage(id){
+  const u = db.usage.find(x=>x.id===id); if(!u) return;
+  if(!confirm('「' + u.menuName + ' × ' + u.count + '」を取り消して、材料を在庫に戻します。よろしいですか?')) return;
+  u.deductions.forEach(d=>{
+    const it = itemById(d.itemId);
+    if(it) it.stock = Math.round((it.stock + d.qty)*100)/100;
+  });
+  db.usage = db.usage.filter(x=>x.id!==id);
+  save(); renderSales(); refreshBadge(); toast("取り消しました");
+}
+
+/* ================= 棚卸し ================= */
+let tana = null; // {ids:[], idx, values:{}, book:{}}
+function tanaSortIds(items){
+  const catIdx = c => CATS.indexOf(c);
+  return [...items].sort((a,b)=> catIdx(a.cat)-catIdx(b.cat) || a.name.localeCompare(b.name,"ja")).map(it=>it.id);
+}
+function watchItems(){
+  return db.items.filter(it => isLow(it) || (it.lastDiff!==undefined && it.lastDiff!==0) || it.stock <= it.reorder*1.2);
+}
+function startTana(){
+  if(!db.items.length){ toast("食材がまだ登録されていません"); go("stock"); return; }
+  tana = null;
+  go("tana");
+  const w = watchItems();
+  document.getElementById("tanaBody").innerHTML =
+    '<div class="card"><h2>✅ 棚卸しのやり方をえらぶ</h2>' +
+    '<button class="btn primary" onclick="beginTana(\'watch\')">⚡ 要注意だけ(' + w.length + '品目)</button>' +
+    '<div class="note" style="margin-bottom:12px;">残りわずか・前回差異が出た食材だけをサッと確認。ふだんはこれでOK。</div>' +
+    '<button class="btn outline" onclick="beginTana(\'all\')">📦 ぜんぶ棚卸し(' + db.items.length + '品目)</button>' +
+    '<div class="note">月に1回など、全部をきちんと確認したいときに。</div></div>' +
+    '<div class="card"><h2>💡 数えなくて済むコツ</h2>' +
+    '<div class="note" style="margin-top:0;">「売上を入力する」を毎日つけると、材料が自動で在庫から引かれて帳簿が常に合った状態になります。棚卸しは各食材で「✓ 合ってる」を押すだけ。違うときだけ数字を直せば完了です。</div></div>';
+}
+function beginTana(mode){
+  const items = mode==="watch" ? watchItems() : db.items;
+  if(!items.length){ toast("要注意の食材はありません 🎉"); go("home"); return; }
+  tana = { ids: tanaSortIds(items), idx: 0, values:{}, book:{} };
+  db.items.forEach(it=> tana.book[it.id] = it.stock);
+  renderTana();
+}
+function renderTana(){
+  const el = document.getElementById("tanaBody");
+  if(!tana) return;
+  if(tana.idx >= tana.ids.length){ renderTanaResult(); return; }
+  const it = itemById(tana.ids[tana.idx]);
+  const val = (tana.values[it.id] !== undefined) ? tana.values[it.id] : tana.book[it.id];
+  const pct = Math.round(tana.idx / tana.ids.length * 100);
+  el.innerHTML =
+    '<div class="card tanaCard">' +
+      '<div class="prog">' + (tana.idx+1) + ' / ' + tana.ids.length + ' 品目</div>' +
+      '<div class="progbar"><div style="width:' + pct + '%"></div></div>' +
+      '<span class="cat">' + esc(it.cat) + '</span>' +
+      '<div class="iname">' + esc(it.name) + '</div>' +
+      '<div class="bookbox"><div class="l">帳簿ではこの数のはず</div>' +
+      '<div class="v">' + fmt(val) + '<span class="u">' + it.unit + '</span></div></div>' +
+      '<button class="btn primary" onclick="tanaOk()">✓ 合ってる(次へ)</button>' +
+      '<details class="fix"><summary>ちがう → 実際の数を入れる ▾</summary>' +
+        '<div class="tanaNum">' +
+          '<button class="stepbtn minus" onclick="tanaBump(-1)">−</button>' +
+          '<input type="number" id="tanaVal" inputmode="decimal" min="0" step="0.1" value="' + fmt(val) + '">' +
+          '<button class="stepbtn plus" onclick="tanaBump(1)">＋</button>' +
+          '<button class="micbtn" id="micBtn" onclick="startVoice()">🎤</button>' +
+        '</div>' +
+        '<button class="btn outline" onclick="tanaFix()">この数に直して次へ</button>' +
+      '</details>' +
+      (tana.idx>0 ? '<button class="btn gray small" onclick="tanaMove(-1)">← 前へもどる</button>' : '') +
+    '</div>' +
+    '<button class="btn gray small" onclick="quitTana()">棚卸しをやめる</button>';
+}
+function tanaOk(){
+  const it = itemById(tana.ids[tana.idx]);
+  tana.values[it.id] = tana.book[it.id];
+  tana.idx++;
+  renderTana(); window.scrollTo(0,0);
+}
+function tanaFix(){
+  const it = itemById(tana.ids[tana.idx]);
+  tana.values[it.id] = Math.max(0, parseFloat(document.getElementById("tanaVal").value)||0);
+  tana.idx++;
+  renderTana(); window.scrollTo(0,0);
+}
+function tanaBump(dir){
+  const it = itemById(tana.ids[tana.idx]);
+  const inp = document.getElementById("tanaVal");
+  const v = Math.max(0, Math.round(((parseFloat(inp.value)||0) + dir*step(it.unit))*100)/100);
+  inp.value = fmt(v);
+}
+function tanaMove(dir){
+  tana.idx = Math.max(0, tana.idx + dir);
+  renderTana(); window.scrollTo(0,0);
+}
+function renderTanaResult(){
+  const rows = tana.ids.map(id=>{
+    const it = itemById(id);
+    const actual = (tana.values[id] !== undefined) ? tana.values[id] : tana.book[id];
+    return {it, book: tana.book[id], actual, diff: Math.round((actual - tana.book[id])*100)/100};
+  });
+  const diffs = rows.filter(r=>r.diff!==0);
+  document.getElementById("tanaBody").innerHTML =
+    '<div class="card">' +
+      '<h2>棚卸しの結果(帳簿と実在庫の差)</h2>' +
+      (diffs.length
+        ? '<table class="diff"><tr><th>品名</th><th>帳簿</th><th>実際</th><th>差</th></tr>' +
+          diffs.map(r=>'<tr><td>'+esc(r.it.name)+'</td><td>'+fmt(r.book)+'</td><td>'+fmt(r.actual)+'</td>' +
+            '<td class="'+(r.diff<0?"minus":"plus")+'">'+(r.diff>0?"+":"")+fmt(r.diff)+r.it.unit+'</td></tr>').join("") +
+          '</table><div class="note">マイナスの差はロス(廃棄・作りすぎ・記録漏れ)の可能性があります。差が出た食材は次回「⚡要注意だけ」に自動で入ります。</div>'
+        : '<div class="empty">差異ゼロ!帳簿どおりでした 🎉</div>') +
+    '</div>' +
+    '<button class="btn primary" onclick="applyTana()">この数で在庫を更新して完了</button>' +
+    '<button class="btn gray" onclick="quitTana()">更新せずにやめる</button>';
+}
+function applyTana(){
+  tana.ids.forEach(id=>{
+    const it = itemById(id);
+    if(!it) return;
+    const actual = (tana.values[id] !== undefined) ? tana.values[id] : tana.book[id];
+    it.lastDiff = Math.round((actual - tana.book[id])*100)/100;
+    it.stock = actual;
+  });
+  db.lastTana = today();
+  save(); tana = null;
+  toast("棚卸しが完了しました");
+  go("home");
+}
+function quitTana(){ tana = null; go("home"); }
+
+/* ---- 音声入力 ---- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recog = null;
+function parseSpokenNumber(t){
+  t = String(t).replace(/[０-９．]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0)).replace(/点/g,".");
+  const m = t.match(/\d+(\.\d+)?/);
+  if(m) return parseFloat(m[0]);
+  const kan = {"〇":0,"零":0,"一":1,"二":2,"三":3,"四":4,"五":5,"六":6,"七":7,"八":8,"九":9,"十":10};
+  for(const k in kan) if(t.includes(k)) return kan[k];
+  if(t.includes("半")) return 0.5;
+  return null;
+}
+function startVoice(){
+  const btn = document.getElementById("micBtn");
+  if(!SR){ toast("この端末は音声入力に対応していません"); return; }
+  if(recog){ try{recog.stop();}catch(e){} return; }
+  recog = new SR();
+  recog.lang = "ja-JP"; recog.interimResults = false; recog.maxAlternatives = 1;
+  btn.classList.add("rec");
+  recog.onresult = e=>{
+    const t = e.results[0][0].transcript;
+    const num = parseSpokenNumber(t);
+    const inp = document.getElementById("tanaVal");
+    if(num!==null && inp){ inp.value = fmt(num); toast('「' + t + '」→ ' + fmt(num)); }
+    else toast('数が聞き取れませんでした:「' + t + '」');
+  };
+  recog.onend = ()=>{ btn.classList.remove("rec"); recog = null; };
+  recog.onerror = ()=>{ toast("音声入力できませんでした(マイク許可を確認)"); };
+  try{ recog.start(); }catch(e){ toast("音声入力を開始できませんでした"); recog = null; btn.classList.remove("rec"); }
+}
+
+/* ================= 発注 ================= */
+let orderQty = {};
+function suggestQty(it){
+  const need = it.reorder*2 - it.stock;
+  const s = step(it.unit);
+  return Math.max(s, Math.ceil(need/s)*s);
+}
+function renderOrder(){
+  const low = lowItems();
+  const el = document.getElementById("orderBody");
+  refreshBadge();
+  if(!low.length){
+    el.innerHTML = '<div class="hero ok"><div class="big">✅ 発注が必要な食材はありません</div>' +
+      '<div class="hint">発注点を下回ると、ここに自動でリストが出ます</div></div>';
+    return;
+  }
+  low.forEach(it=>{ if(orderQty[it.id]===undefined) orderQty[it.id] = suggestQty(it); });
+  const groups = {};
+  low.forEach(it=>{
+    const g = it.supplier || "仕入れ先未設定";
+    (groups[g] = groups[g] || []).push(it);
+  });
+  el.innerHTML =
+    '<div class="card"><h2>発注が必要な食材(' + low.length + '品目)</h2>' +
+    Object.keys(groups).map(g=>
+      '<div class="ordgroup"><div class="gname">📞 ' + esc(g) + '</div>' +
+      groups[g].map(it=>
+        '<div class="ordrow"><div class="n">' + esc(it.name) +
+        '<div style="font-size:11px;color:var(--sub);font-weight:400;">残り ' + fmt(it.stock) + it.unit + '/発注点 ' + fmt(it.reorder) + '</div></div>' +
+        '<input type="number" inputmode="decimal" min="0" step="0.1" value="' + fmt(orderQty[it.id]) + '" onchange="setOrderQty(' + it.id + ',this.value)">' +
+        '<div class="u">' + it.unit + '</div></div>'
+      ).join("") + '</div>'
+    ).join("") +
+    '</div>' +
+    '<div class="card"><h2>そのまま送れる発注文</h2>' +
+    '<textarea class="ordtext" id="orderText" readonly>' + esc(buildOrderText(groups)) + '</textarea>' +
+    '<button class="btn primary" style="margin-top:10px;" onclick="copyOrderText()">📋 発注文をコピーする</button>' +
+    '<div class="note">コピーして LINE やメールにそのまま貼り付けできます。</div></div>';
+}
+function setOrderQty(id, v){
+  orderQty[id] = Math.max(0, parseFloat(v)||0);
+  renderOrder();
+}
+function buildOrderText(groups){
+  const d = new Date();
+  let txt = "【発注のお願い】" + (d.getMonth()+1) + "/" + d.getDate() + "\n";
+  Object.keys(groups).forEach(g=>{
+    txt += "\n■ " + g + "\n";
+    groups[g].forEach(it=>{
+      txt += "・" + it.name + "　" + fmt(orderQty[it.id]) + it.unit + "\n";
+    });
+  });
+  txt += "\nよろしくお願いします。";
+  return txt;
+}
+function copyOrderText(){
+  const ta = document.getElementById("orderText");
+  const done = ()=>toast("コピーしました。LINEやメールに貼り付けてください");
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ta.value).then(done).catch(()=>{ ta.select(); document.execCommand("copy"); done(); });
+  }else{
+    ta.select(); ta.setSelectionRange(0, 99999); document.execCommand("copy"); done();
+  }
+}
+
+/* ================= 仕入れ ================= */
+function renderPurchase(){
+  document.getElementById("pItem").innerHTML =
+    db.items.map(it=>'<option value="' + it.id + '">' + esc(it.name) + '(' + it.unit + ')</option>').join("");
+  const sups = [...new Set(db.items.map(it=>it.supplier).filter(Boolean))];
+  document.getElementById("supplierList").innerHTML = sups.map(s=>'<option value="' + esc(s) + '">').join("");
+  if(!document.getElementById("pDate").value) document.getElementById("pDate").value = today();
+  const mInp = document.getElementById("pMonth");
+  if(!mInp.value) mInp.value = today().slice(0,7);
+
+  const month = mInp.value;
+  const recs = db.purchases.filter(p=>p.date.slice(0,7)===month);
+  const total = recs.reduce((s,p)=>s+p.amount,0);
+  const byCat = {};
+  recs.forEach(p=>{
+    const it = itemById(p.itemId);
+    const c = p.cat || (it ? it.cat : "その他");
+    byCat[c] = (byCat[c]||0) + p.amount;
+  });
+  document.getElementById("pSummary").innerHTML =
+    '<div class="sumrow total"><span>合計</span><span>' + yen(total) + '</span></div>' +
+    (recs.length
+      ? CATS.concat(["その他"]).filter(c=>byCat[c]).map(c=>
+          '<div class="sumrow"><span>' + c + '</span><span>' + yen(byCat[c]) + '</span></div>').join("")
+      : '<div class="empty">この月の仕入れ記録はまだありません</div>');
+
+  const recent = [...db.purchases].sort((a,b)=> b.date.localeCompare(a.date) || b.id-a.id).slice(0,15);
+  document.getElementById("pRecent").innerHTML = recent.length
+    ? recent.map(p=>{
+        const it = itemById(p.itemId);
+        return '<div class="recrow"><div class="d">' + esc(p.date.slice(5)) + '</div>' +
+          '<div class="n"><b>' + esc(p.itemName || (it?it.name:"(削除済み)")) + '　' + fmt(p.qty) + (p.unit||"") + '</b>' +
+          '<span>' + esc(p.supplier||"") + '</span></div>' +
+          '<div class="a">' + yen(p.amount) + '</div>' +
+          '<button onclick="removePurchase(' + p.id + ')">取消</button></div>';
+      }).join("")
+    : '<div class="empty">まだ仕入れ記録がありません</div>';
+}
+let pNextId = null;
+function purchaseNextId(){
+  if(pNextId===null) pNextId = db.purchases.reduce((m,p)=>Math.max(m,p.id),0) + 1;
+  return pNextId++;
+}
+function addPurchase(){
+  const date = document.getElementById("pDate").value;
+  const supplier = document.getElementById("pSupplier").value.trim();
+  const itemId = parseInt(document.getElementById("pItem").value,10);
+  const qty = parseFloat(document.getElementById("pQty").value);
+  const amount = parseFloat(document.getElementById("pAmount").value);
+  const it = itemById(itemId);
+  if(!date){ toast("仕入れた日を入れてください"); return; }
+  if(!it){ toast("品名を選んでください"); return; }
+  if(!(qty>0)){ toast("数量を入れてください"); return; }
+  if(!(amount>=0)){ toast("金額を入れてください"); return; }
+  db.purchases.push({
+    id: purchaseNextId(), date, supplier, itemId,
+    itemName: it.name, unit: it.unit, cat: it.cat,
+    qty, amount
+  });
+  it.stock = Math.round((it.stock + qty)*100)/100;
+  save();
+  document.getElementById("pQty").value = "";
+  document.getElementById("pAmount").value = "";
+  renderPurchase(); refreshBadge();
+  toast(it.name + " を在庫に入れました(現在 " + fmt(it.stock) + it.unit + ")");
+}
+function removePurchase(id){
+  const p = db.purchases.find(x=>x.id===id); if(!p) return;
+  if(!confirm('「' + (p.itemName||"") + ' ' + fmt(p.qty) + '」の記録を取り消します。\n在庫からも ' + fmt(p.qty) + (p.unit||"") + ' を引きます。よろしいですか?')) return;
+  const it = itemById(p.itemId);
+  if(it) it.stock = Math.max(0, Math.round((it.stock - p.qty)*100)/100);
+  db.purchases = db.purchases.filter(x=>x.id!==id);
+  save(); renderPurchase(); refreshBadge(); toast("取り消しました");
+}
+
+/* ================= CSV ================= */
+const BOM = String.fromCharCode(0xFEFF);
+function csvCell(v){
+  const s = String(v==null?"":v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function downloadCsv(name, rows){
+  const csv = BOM + rows.map(r=>r.map(csvCell).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], {type:"text/csv"}));
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+function exportItemsCsv(){
+  downloadCsv("在庫一覧_" + today() + ".csv",
+    [["品名","カテゴリ","単位","現在庫","発注点","仕入れ先"],
+     ...db.items.map(it=>[it.name,it.cat,it.unit,it.stock,it.reorder,it.supplier||""])]);
+  toast("在庫CSVを保存しました");
+}
+function exportPurchasesCsv(){
+  downloadCsv("仕入れ記録_" + today() + ".csv",
+    [["日付","仕入れ先","品名","カテゴリ","数量","単位","金額"],
+     ...db.purchases.map(p=>[p.date,p.supplier||"",p.itemName||"",p.cat||"",p.qty,p.unit||"",p.amount])]);
+  toast("仕入れCSVを保存しました");
+}
+function parseCsv(text){
+  const rows = []; let row = [], cell = "", q = false;
+  if(text.charCodeAt(0)===0xFEFF) text = text.slice(1);
+  for(let i=0;i<text.length;i++){
+    const c = text[i];
+    if(q){
+      if(c==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else q=false; }
+      else cell += c;
+    }else if(c==='"'){ q = true; }
+    else if(c===","){ row.push(cell); cell=""; }
+    else if(c==="\n" || c==="\r"){
+      if(c==="\r" && text[i+1]==="\n") i++;
+      row.push(cell); cell=""; if(row.some(x=>x!=="")) rows.push(row); row=[];
+    }else cell += c;
+  }
+  row.push(cell); if(row.some(x=>x!=="")) rows.push(row);
+  return rows;
+}
+function importItemsCsv(input){
+  const file = input.files && input.files[0];
+  input.value = "";
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    try{
+      const rows = parseCsv(reader.result);
+      if(rows.length < 2){ toast("読み込めるデータがありません"); return; }
+      let added = 0, updated = 0;
+      rows.slice(1).forEach(r=>{
+        const [name,cat,unit,stock,reorder,supplier] = r;
+        if(!name) return;
+        const data = {
+          name: name.trim(),
+          cat: CATS.includes(cat) ? cat : "調味料",
+          unit: UNITS.includes(unit) ? unit : "個",
+          stock: Math.max(0, parseFloat(stock)||0),
+          reorder: Math.max(0, parseFloat(reorder)||0),
+          supplier: (supplier||"").trim()
+        };
+        const ex = db.items.find(it=>it.name===data.name);
+        if(ex){ Object.assign(ex, data); updated++; }
+        else { db.items.push({id: db.nextId++, ...data}); added++; }
+      });
+      save(); renderHome(); refreshBadge();
+      toast("読み込みました(追加" + added + "件・更新" + updated + "件)");
+    }catch(e){ toast("CSVの読み込みに失敗しました"); }
+  };
+  reader.readAsText(file, "UTF-8");
+}
+
+/* ================= 起動 ================= */
+document.getElementById("todayLabel").textContent = (()=>{
+  const d = new Date();
+  return d.getMonth()+1 + "/" + d.getDate() + "(" + "日月火水木金土"[d.getDay()] + ")";
+})();
+save();
+go("home");
+// オフライン対応(Web公開時のみ有効。file://直開きでは何もしない)
+if("serviceWorker" in navigator && (location.protocol==="https:" || location.hostname==="localhost" || location.hostname==="127.0.0.1")){
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+</script>
+</body>
+</html>
