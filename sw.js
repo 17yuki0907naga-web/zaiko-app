@@ -1,5 +1,5 @@
 /* お店の在庫管理 - オフライン対応 Service Worker */
-const CACHE = "zaiko-cache-v3";
+const CACHE = "zaiko-cache-v4";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
